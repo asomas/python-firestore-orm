@@ -1,5 +1,6 @@
 import numbers
-SPECIAL_KEYS = {'_schema_name','_allow_missing','_allow_null'}
+SPECIAL_KEYS = {'_schema_name', '_allow_missing', '_allow_null'}
+
 
 class ValidatorException(Exception):
     def __init__(self, message):
@@ -38,7 +39,7 @@ class Field(property):
             raise ValidatorException(
                 f'expected instance of type {self._firestore_type.__name__} but got {type(val).__name__}'
             )
-    
+
     def _validate(self, parent):
         def contains_key(key, obj):
             if type(obj) == list:
@@ -47,14 +48,15 @@ class Field(property):
                 return key in obj
             else:
                 raise typeerror(obj)
-                
+
         if self._schema_name is None:
             return None
         if not contains_key(self._schema_name, parent._firestore_data):
             if self.allow_missing:
                 return None
             else:
-                raise ValidatorException(f'field {self._schema_name} is missing.')
+                raise ValidatorException(
+                    f'field {self._schema_name} is missing.')
         val = parent._firestore_data[self._schema_name]
         self._type_check(val)
         return val
@@ -97,18 +99,19 @@ class Boolean(Field):
                          allow_null=allow_null)
 
 
-
 class Map(Field):
     def __init__(self, *, rename=None, allow_missing=False, allow_null=False):
-        super().__init__(firestore_type=dict, schema_name=rename, 
+        super().__init__(firestore_type=dict,
+                         schema_name=rename,
                          allow_missing=allow_missing,
                          allow_null=allow_null)
         self._firestore_data = {}
-        for (name,schema_name,field) in self._get_fields():
+        for (name, schema_name, field) in self._get_fields():
             field._schema_name = schema_name or name
 
     def _get_fields(self):
-        return ((name, field._schema_name,field) for (name, field) in vars(type(self)).items()
+        return ((name, field._schema_name, field)
+                for (name, field) in vars(type(self)).items()
                 if isinstance(field, Field))
 
     def _validate(self, parent):
@@ -117,7 +120,7 @@ class Map(Field):
             return None
         #now check members
         self._firestore_data = parent._firestore_data[self._schema_name]
-        for (name,schema_name,field) in self._get_fields():
+        for (name, schema_name, field) in self._get_fields():
             field._validate(self)
 
     def _get_value(self, self_parent):
@@ -128,22 +131,7 @@ class Map(Field):
             raise ValidatorException(
                 f'expected instance of type {type(self).__name__} but got {type(val).__name__}'
             )
-        self.__dict__.update({k:v for (k,v) in val.__dict__.items() if k not in SPECIAL_KEYS})
+        self.__dict__.update(
+            {k: v
+             for (k, v) in val.__dict__.items() if k not in SPECIAL_KEYS})
         self_parent._firestore_data[self._schema_name] = self._firestore_data
-        
-
-
-class Document(Map):
-    def __init__(self, *, rename='default', allow_missing=False, allow_null=False):
-        super().__init__(rename=rename,
-                         allow_missing=allow_missing,
-                         allow_null=allow_null)
-
-
-    
-    def validate(self):
-        class Temp:
-            _firestore_data = {'default':self._firestore_data}
-        self._validate(Temp)
-
-

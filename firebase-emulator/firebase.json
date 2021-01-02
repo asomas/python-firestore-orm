@@ -1,0 +1,25 @@
+{
+    "firestore": {
+        "rules": "firestore.rules",
+        "indexes": "firestore.indexes.json"
+    },
+    "emulators": {
+        "firestore": {
+            "host": "0.0.0.0",
+            "port": 8000
+        },
+        "auth": {
+            "host": "0.0.0.0",
+            "port": 9099
+        },
+        "pubsub": {
+            "host": "0.0.0.0",
+            "port": "8085"
+        },        
+        "ui": {
+            "enabled": true,
+            "host": "0.0.0.0",
+            "port": 4000
+        }
+    }
+}

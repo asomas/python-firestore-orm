@@ -1,0 +1,34 @@
+version: '3'
+services:
+
+  firebase-demo:
+    container_name: firebase-demo
+    image: firebase-demo:latest
+    build:
+      context: .
+    depends_on:
+      - firebase-emulator
+    volumes:
+      - ./src:/src
+    working_dir: /src
+    environment:
+      - FIRESTORE_EMULATOR_HOST=firebase-emulator:8000
+      - FIREBASE_AUTH_EMULATOR_HOST=firebase-emulator:9099
+      - FIRESTORE_PROJECT_ID=firebase-demo
+      - PUBSUB_EMULATOR_HOST=firebase-emulator:8085
+      - PUBSUB_PROJECT_ID=firebase-demo
+    command: ["python", "firestore_test.py"]
+
+  firebase-emulator:
+    container_name: firebase-emulator
+    image: asomas/firebase-emulator:8.16.2
+    volumes:
+      - ./firebase-emulator:/app
+    ports:
+      - 8000:8000 # firestore
+      - 4000:4000 # ui
+      - 9099:9099 # auth
+      - 8085:8085 # pubsub
+      - 9005:9005 # firebase login redirect
+    entrypoint:
+      ["firebase", "emulators:start"]
