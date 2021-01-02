@@ -26,7 +26,8 @@ class Document(Map):
                                                        parent_path='')
         if type(self)._firestore_meta.name is None:
             type(self)._firestore_meta.name = type(self).__name__
-
+    def as_firestore_dict(self):
+        return self._firestore_data
     def validate(self):
         class Temp:
             _firestore_data = {'default': self._firestore_data}
@@ -39,7 +40,7 @@ def collection(*, name=None, parent=''):
         if parent is None:
             path = ''
         elif type(parent) == str:
-            path = parent
+            path = parent if parent[-1] == '/' else parent + '/'
         elif issubclass(parent, Document):
             path = parent._firestore_meta.path() + '/' if hasattr(parent, '_firestore_meta') else parent.__name__ + '/'
         cls._firestore_meta = FirestoreMeta(name=name or cls.__name__, parent_path=path)
@@ -47,13 +48,15 @@ def collection(*, name=None, parent=''):
     return collection_impl
 
 
-class Worker(Document):
-    pass
 
 
-@collection(name='public', parent=Worker)
-class WorkerPublic(Document):
-    pass
 
 
-print(WorkerPublic._firestore_meta.path())
+class Db:
+    def __init__(self, *, project, credentials):
+        self.db = firestore.Client(project=project, credentials=credentials)
+    def put(self, item, *, id=None):
+        if not isinstance(item, Document):
+            raise typeerror(f'Expected subclass of Document but found {type(item)}')
+        item.validate()
+        self.db.collection(item._firestore_meta.path()).add(item.as_firestore_dict())
