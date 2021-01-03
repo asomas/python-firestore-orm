@@ -1,4 +1,5 @@
 import numbers
+
 SPECIAL_KEYS = {'_schema_name', '_allow_missing', '_allow_null'}
 
 
@@ -17,6 +18,10 @@ class ValidatorException(Exception):
 class Field(property):
     def __init__(self, *, firestore_type, schema_name, allow_missing,
                  allow_null):
+        if type(self) == Field:
+            raise typeerror(
+                'Cannot construct Field object directly, must use a subclass of Field.'
+            )
         super().__init__(
             lambda containing_cls: self._get_value(containing_cls),
             lambda containing_cls, val: self._set_value(containing_cls, val),
@@ -111,8 +116,6 @@ class Map(Field):
                          allow_null=allow_null)
         self._firestore_data = {}
 
-
-
     def _get_fields_cls(cls):
         return ((name, field._schema_name, field)
                 for (name, field) in vars(cls).items()
@@ -120,9 +123,10 @@ class Map(Field):
 
     def _get_fields(self):
         return Map._get_fields_cls(type(self))
+
     def _init_fields(self, schema_name, containing_cls):
-        super()._init_fields(schema_name,containing_cls)
-        for (name,schema_name,field) in self._get_fields():
+        super()._init_fields(schema_name, containing_cls)
+        for (name, schema_name, field) in self._get_fields():
             field._init_fields(schema_name or name, self)
 
     def _validate(self, parent):
@@ -135,9 +139,19 @@ class Map(Field):
             field._validate(self)
 
     def _get_value(self, containing_cls):
-        return self
+        return self if containing_cls._firestore_data[
+            self._schema_name] is not None else None
 
     def _set_value(self, containing_cls, val):
+        if val is None:
+            if self._allow_null:
+                containing_cls._firestore_data[self._schema_name] = None
+                self._firestore_data = {}
+                return
+            else:
+                raise ValidatorException(
+                    f'field {self._schema_name} may not be null')
+
         if type(self) != type(val):
             raise ValidatorException(
                 f'expected instance of type {type(self).__name__} but got {type(val).__name__}'
@@ -145,4 +159,5 @@ class Map(Field):
         self.__dict__.update(
             {k: v
              for (k, v) in val.__dict__.items() if k not in SPECIAL_KEYS})
-        containing_cls._firestore_data[self._schema_name] = self._firestore_data
+        containing_cls._firestore_data[
+            self._schema_name] = self._firestore_data
