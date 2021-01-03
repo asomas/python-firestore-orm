@@ -2,11 +2,11 @@ from fields import *
 
 
 class FirestoreMeta:
-    def __init__(self, *, parent_path, name):
-        self.parent_path = parent_path
+    """A bit basic for now, until sub collections are added"""
+    def __init__(self, name):
         self.name = name
     def path(self):
-        return self.parent_path + self.name
+        return self.name
 
 
 class Document(Map):
@@ -22,12 +22,16 @@ class Document(Map):
                          allow_missing=allow_missing,
                          allow_null=allow_null)
         if not hasattr(type(self), '_firestore_meta'):
-            type(self)._firestore_meta = FirestoreMeta(name=None,
-                                                       parent_path='')
-        if type(self)._firestore_meta.name is None:
-            type(self)._firestore_meta.name = type(self).__name__
-    def as_firestore_dict(self):
+            raise ValueError(f'If subclassing a document, document must have @collection annotation')
+    def firestore_raw(self):
         return self._firestore_data
+        
+    def _init_document(cls, collection_name):
+        cls._firestore_meta = FirestoreMeta(collection_name)
+        cls.containing_cls = None
+        for (name,schema_name,field) in Map._get_fields_cls(cls):
+            field._init_fields(schema_name or name, cls)
+        
     def validate(self):
         class Temp:
             _firestore_data = {'default': self._firestore_data}
@@ -35,15 +39,10 @@ class Document(Map):
         self._validate(Temp)
 
 
-def collection(*, name=None, parent=''):
+def collection(*, name=None):
     def collection_impl(cls):
-        if parent is None:
-            path = ''
-        elif type(parent) == str:
-            path = parent if parent[-1] == '/' else parent + '/'
-        elif issubclass(parent, Document):
-            path = parent._firestore_meta.path() + '/' if hasattr(parent, '_firestore_meta') else parent.__name__ + '/'
-        cls._firestore_meta = FirestoreMeta(name=name or cls.__name__, parent_path=path)
+        
+        Document._init_document(cls, name or cls.__name__)
         return cls
     return collection_impl
 
@@ -59,4 +58,4 @@ class Db:
         if not isinstance(item, Document):
             raise typeerror(f'Expected subclass of Document but found {type(item)}')
         item.validate()
-        self.db.collection(item._firestore_meta.path()).add(item.as_firestore_dict())
+        self.db.collection(item._firestore_meta.path()).add(item.firestore_raw())

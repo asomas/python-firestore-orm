@@ -18,9 +18,9 @@ class Field(property):
     def __init__(self, *, firestore_type, schema_name, allow_missing,
                  allow_null):
         super().__init__(
-            lambda self_parent: self._get_value(self_parent),
-            lambda self_parent, val: self._set_value(self_parent, val),
-            lambda self_parent: self._del_value(self_parent),
+            lambda containing_cls: self._get_value(containing_cls),
+            lambda containing_cls, val: self._set_value(containing_cls, val),
+            lambda containing_cls: self._del_value(containing_cls),
             f'A property of type {firestore_type.__name__} with name {schema_name}'
         )
         self._firestore_type = firestore_type
@@ -40,6 +40,10 @@ class Field(property):
                 f'expected instance of type {self._firestore_type.__name__} but got {type(val).__name__}'
             )
 
+    def _init_fields(self, schema_name, containing_cls):
+        self._schema_name = schema_name
+        self.containing_cls = containing_cls
+
     def _validate(self, parent):
         def contains_key(key, obj):
             if type(obj) == list:
@@ -56,19 +60,19 @@ class Field(property):
                 return None
             else:
                 raise ValidatorException(
-                    f'field {self._schema_name} is missing.')
+                    f'field "{self._schema_name}" is missing.')
         val = parent._firestore_data[self._schema_name]
         self._type_check(val)
         return val
 
-    def _get_value(self, self_parent):
-        return self_parent._firestore_data[self._schema_name]
+    def _get_value(self, containing_cls):
+        return containing_cls._firestore_data[self._schema_name]
 
-    def _set_value(self, self_parent, val):
+    def _set_value(self, containing_cls, val):
         self._type_check(val)
-        self_parent._firestore_data[self._schema_name] = val
+        containing_cls._firestore_data[self._schema_name] = val
 
-    def _del_value(self, self_parent):
+    def _del_value(self, containing_cls):
         raise NotImplementedError()
 
     def __lt__(self, val):
@@ -106,13 +110,20 @@ class Map(Field):
                          allow_missing=allow_missing,
                          allow_null=allow_null)
         self._firestore_data = {}
-        for (name, schema_name, field) in self._get_fields():
-            field._schema_name = schema_name or name
+
+
+
+    def _get_fields_cls(cls):
+        return ((name, field._schema_name, field)
+                for (name, field) in vars(cls).items()
+                if isinstance(field, Field))
 
     def _get_fields(self):
-        return ((name, field._schema_name, field)
-                for (name, field) in vars(type(self)).items()
-                if isinstance(field, Field))
+        return Map._get_fields_cls(type(self))
+    def _init_fields(self, schema_name, containing_cls):
+        super()._init_fields(schema_name,containing_cls)
+        for (name,schema_name,field) in self._get_fields():
+            field._init_fields(schema_name or name, self)
 
     def _validate(self, parent):
         val = super()._validate(parent)
@@ -123,10 +134,10 @@ class Map(Field):
         for (name, schema_name, field) in self._get_fields():
             field._validate(self)
 
-    def _get_value(self, self_parent):
+    def _get_value(self, containing_cls):
         return self
 
-    def _set_value(self, self_parent, val):
+    def _set_value(self, containing_cls, val):
         if type(self) != type(val):
             raise ValidatorException(
                 f'expected instance of type {type(self).__name__} but got {type(val).__name__}'
@@ -134,4 +145,4 @@ class Map(Field):
         self.__dict__.update(
             {k: v
              for (k, v) in val.__dict__.items() if k not in SPECIAL_KEYS})
-        self_parent._firestore_data[self._schema_name] = self._firestore_data
+        containing_cls._firestore_data[self._schema_name] = self._firestore_data
