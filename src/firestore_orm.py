@@ -51,10 +51,10 @@ class Document(Map):
     @staticmethod
     def _create_from_snapshot(subcls, snapshot):
         obj = subcls()
-        subcls._firestore_data = snapshot.to_dict()
-        subcls._set_id(DocRef(subcls, id=snapshot.id))
-        subcls.validate()
-        return subcls
+        obj._firestore_data = snapshot.to_dict()
+        obj._set_id(DocRef(subcls, id=snapshot.id))
+        obj.validate()
+        return obj
 
     def store(self):
         self.validate()
@@ -102,7 +102,7 @@ class DocRef(Field):
         snapshot = self._doc_ref_internal.get()
         if snapshot.to_dict() is None:
             return None
-        return self._doc_type._create_from_snapshot(snapshot)
+        return self._doc_type._create_from_snapshot(self._doc_type, snapshot)
 
 
 def init_orm(*, project, credentials):

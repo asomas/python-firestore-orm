@@ -30,8 +30,8 @@ class Field(property):
         )
         self._firestore_type = firestore_type
         self._schema_name = schema_name
-        self.allow_missing = allow_missing
-        self.allow_null = allow_null
+        self._allow_missing = allow_missing
+        self._allow_null = allow_null
 
     def _type_check(self, val):
         if val is None:
@@ -61,7 +61,7 @@ class Field(property):
         if self._schema_name is None:
             return None
         if not contains_key(self._schema_name, parent._firestore_data):
-            if self.allow_missing:
+            if self._allow_missing:
                 return None
             else:
                 raise ValidatorException(
@@ -71,7 +71,7 @@ class Field(property):
         return val
 
     def _get_value(self, containing_cls):
-        return containing_cls._firestore_data[self._schema_name]
+        return containing_cls._firestore_data.get(self._schema_name)
 
     def _set_value(self, containing_cls, val):
         self._type_check(val)
