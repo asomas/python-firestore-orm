@@ -44,7 +44,7 @@ class Person(Document):
     def __str__(self):
         return f'Person(name={self.name}, age={self.age}, address={self.address})'
 
-
+#set manually or from json like dict
 p = Person()
 p.name = 'fudge'
 p.age = 5
@@ -52,31 +52,35 @@ a = Address()
 a.postcode = 'abcde'
 p.address = a
 
-print(f'storing {p}')
+#from dict
+q = Document.from_dict(Person, {'name': 'fudge2', 'age': 10, 'address': None})
+
 #Save the document to the firestore with a specific ID.
+print(f'storing {p}')
 p.store('hello')
 
-#Save the document again to the firestore with a firestore chosen ID.
-p.store()
+#Save a document to the firestore with a firestore chosen ID.
+print(f'storing {q}')
+q.store()
 
-#Get the ID from p.doc_ref.
-doc_ref = p.doc_ref
+#Get the ID from q.doc_ref.
+doc_ref = q.doc_ref
 
-#if the doc ID is to be stored under a different name, use the `key_name` parameter to the collection, `@collection(key_name=...)`.
+#if doc_ref cannot be used, use the `key_name` parameter to the collection, `@collection(key_name=...)` to change the name of the python class member in wich the ID is stored.
 
 p_1 = Document.get(Person, 'hello')
 print(f'received {p_1}')
 
 #get the other person object from the doc_ref.  Either,
-p_2 = doc_ref.get()
+q_1 = doc_ref.get()
 #or
-p_3 = Document.get(Person, doc_ref)
-print(f'fetched p_2 as {p_2}')
-print(f'fetched p_3 as {p_3}')
+q_2 = Document.get(Person, doc_ref)
 
-p_2.name = 'foo2'
-p_2.address = None
-
-print(f'storing {p_2}')
-p_2.store()
+print(f'fetched q_1 as {q_1}')
+print(f'fetched q_2 as {q_2}')
+#resave with different values but same ID
+q_1.name = 'foo2'
+q_1.address = None
+print(f'storing {q_1}')
+q_1.store()
 

@@ -126,6 +126,8 @@ class Map(Field):
             field._validate_dict(val[schema_name])
     @staticmethod
     def dict_to_python(cls, val):
+        if val is None:
+            return None
         obj = cls()
         for (name, schema_name, field) in Map._get_fields(cls._firestore_fields):
             if schema_name in val:
