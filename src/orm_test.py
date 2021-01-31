@@ -21,16 +21,20 @@ init_orm(project=os.environ.get('FIRESTORE_PROJECT_ID'), credentials=cred)
 
 #defining a map field to be part of a containing document
 class Address(Map):
-    house_name = String(allow_missing=True)
-    #field with name house_name that can be missing
+    house_name = String(allow_missing=True, parse_missing_as_None=True)
+    #field with name house_name that can be missing, and when missing, parse it into python None.
+    #since allow_null is false , the None will need to be deleted (missing) or set to a non null value.
     postcode = String(rename='zip_code')
-
     #field that cannot be null or missing and in the firestore is saved as zip_code
+
     def __str__(self):
-        return f'address(house_name={self.house_name}, postcode={self.postcode})'
+        return f'address(postcode={self.postcode}, house_name={getattr(self, "house_name", None)})'
 
 
-#define a document, must use collection annotation, collection annotation has optional argument name.  If not specified, collection name is the class name.
+
+#Define a Document.
+#Document classes must be annotated with @collection().
+#The name of the collection as stored in the firestore is taken from the class name, an optional parameter name `@collection(name=...)` can be used to choose a different name.
 @collection()
 class Person(Document):
     name = String()
@@ -49,21 +53,30 @@ a.postcode = 'abcde'
 p.address = a
 
 print(f'storing {p}')
+#Save the document to the firestore with a specific ID.
+p.store('hello')
+
+#Save the document again to the firestore with a firestore chosen ID.
 p.store()
-#id is now in p.doc_ref
 
-q = p.doc_ref.get()
-print(f'received {q}')
+#Get the ID from p.doc_ref.
+doc_ref = p.doc_ref
 
-#change ID
-q.doc_ref = DocRef(Person, id='my_special_id')
-q.name = 'foo2'
-q.address = None
+#if the doc ID is to be stored under a different name, use the `key_name` parameter to the collection, `@collection(key_name=...)`.
 
-print(f'storing {q}')
+p_1 = Document.get(Person, 'hello')
+print(f'received {p_1}')
 
-q.store()
+#get the other person object from the doc_ref.  Either,
+p_2 = doc_ref.get()
+#or
+p_3 = Document.get(Person, doc_ref)
+print(f'fetched p_2 as {p_2}')
+print(f'fetched p_3 as {p_3}')
 
-#fetch q using specified ID
-r = DocRef(Person, id='my_special_id').get()
-print(f'received {r}')
+p_2.name = 'foo2'
+p_2.address = None
+
+print(f'storing {p_2}')
+p_2.store()
+
